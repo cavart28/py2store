@@ -19,43 +19,134 @@ __assert_condition = partial(_assert_condition, err_cls=KeyValidationError)
 
 
 def tuple_of_dict(d, fields):
+    """
+    Turn a dict d into a tuple, given an iterable of the keys of d. Note that tuple(d.values()) is faster
+    but will only work with dictionary and will yield an unpredictable order of the tuple elements
+    :param d: a dictionary
+    :param fields: an iterable of the keys of d
+    :return: a tuple with the values of d in the order given in fields
+
+    >>> d = {'a': 1, 'b': 2, 'c': 3}
+    >>> tuple_of_dict(d, ['a', 'b', 'c'])
+    (1, 2, 3)
+    >>> tuple_of_dict(d, ['c', 'b', 'a'])
+    (3, 2, 1)
+    >>> # all the keys of d must be in fields
+    >>> tuple_of_dict(d, ['a', 'b'])
+    Traceback (most recent call last):
+        ...
+    py2store.errors.KeyValidationError: len(d)=3 but len(fields)=2
+    """
+
     __assert_condition(len(fields) == len(d), f"len(d)={len(d)} but len(fields)={len(fields)}")
     return tuple(d[f] for f in fields)
 
 
-def dict_of_tuple(d, fields):
-    __assert_condition(len(fields) == len(d), f"len(d)={len(d)} but len(fields)={len(fields)}")
-    return {f: x for f, x in zip(fields, d)}
+def dict_of_tuple(t, fields):
+    """
+    Turn a tuple t into a dict d, given an iterable fields of the keys for d.
+    :param t: a tuple
+    :param fields: an iterable of the keys for d
+    :return: a dictionary with keys from t and values from fields, paired in their corresponding order
+
+    >>> dict_of_tuple((1,2,3), ('a', 'b', 'c'))
+    {'a': 1, 'b': 2, 'c': 3}
+    >>> dict_of_tuple((1,2,3), ('c', 'b', 'a'))
+    {'c': 1, 'b': 2, 'a': 3}
+    >>> # there must be one key in fields per value in t
+    >>> dict_of_tuple((1,2,3), ('c', 'b'))
+    Traceback (most recent call last):
+        ...
+    py2store.errors.KeyValidationError: len(t)=3 but len(fields)=2
+    """
+
+    __assert_condition(len(fields) == len(t), f"len(t)={len(t)} but len(fields)={len(fields)}")
+    return {f: x for f, x in zip(fields, t)}
 
 
-def str_of_tuple(d, str_format):
+def str_of_tuple(t, str_format):
+    """
+    Turn a tuple into a string by inserting its elements in str_format
+    :param t: a tuple
+    :param str_format: a string with as many insertion places as elements in t
+    :return: a formated string
+    >>> str_of_tuple((1,2,3), '{}{}{}')
+    '123'
+    >>> str_of_tuple((1,2,3), '{}{}')
+    '12'
+    >>> str_of_tuple(('longstring', 100), '{:.4}{:>10}')
+    'long       100'
+    """
+
+    # >>> str_of_tuple((1,2,3), '{}{}{}{}')
+    # Traceback (most recent call last)
+    #     ...
+    # py2store.errors.KeyValidationError: tuple index out of range
+
     try:
-        return str_format.format(*d)
+        return str_format.format(*t)
     except Exception as e:
         raise KeyValidationError(e)
 
 
-def tuple_of_str(d, compiled_regex):
-    m = compiled_regex.match(d)
+def tuple_of_str(s, compiled_regex):
+    """
+    :param s: a string
+    :param compiled_regex: a compiled regex
+    :return: a tuple of the part of the matches to return
+    # TODO: fix the second doctest
+
+    >>> import re
+    >>> pattern = re.compile('(\d{3})\w')
+    >>> tuple_of_str("123ABC", pattern)
+    ('123',)
+    >>> pattern = re.compile('(\d{4})')
+    >>> tuple_of_str("123ABC", pattern)
+    Traceback (most recent call last)
+        ...
+    py2store.errors.KeyValidationError: The string 123ABC didn't match the pattern re.compile('(\\d{4})')
+    """
+
+    m = compiled_regex.match(s)
     if m:
         return m.groups()
     else:
-        raise KeyValidationError(f"The string {d} didn't match the pattern {compiled_regex}")
+        raise KeyValidationError(f"The string {s} didn't match the pattern {compiled_regex}")
 
 
 def str_of_dict(d, str_format):
+    """
+    Takes a dictionary and format a string based on the dictionary's values
+    :param d:
+    :param str_format:
+    :return:
+    >>> str_of_dict( {'A': 'a', 'B': 'b'}, '{A}{B}')
+    'ab'
+    """
+
     try:
         return str_format.format(**d)
     except Exception as e:
         raise KeyValidationError(e)
 
 
-def dict_of_str(d, compiled_regex):
-    m = compiled_regex.match(d)
+def dict_of_str(s, compiled_regex):
+    """
+    :param s: a string
+    :param compiled_regex: a compiled regex
+    :return: a dictionary of the form {'name of match': match, ...}
+
+    >>> import re
+    >>> pattern = re.compile('(?P<Domain>[a-zA-Z0-9]+)(?=\.com)')
+    >>> dict_of_str('gmail.com', pattern)
+    {'Domain': 'gmail'}
+    """
+
+    m = compiled_regex.match(s)
     if m:
         return m.groupdict()
     else:
-        raise KeyValidationError(f"The string {d} didn't match the pattern {compiled_regex}")
+        raise KeyValidationError(f"The string {s} didn't match the pattern {compiled_regex}")
 
 
 def dsv_of_list(d, sep=','):
